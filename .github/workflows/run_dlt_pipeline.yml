@@ -1,4 +1,4 @@
-name: Cat Events DLT Pipeline
+name: Run Cat Events dlt Pipeline
 
 on:
   schedule:
