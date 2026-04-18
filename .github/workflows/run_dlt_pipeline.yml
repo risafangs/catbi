@@ -29,6 +29,10 @@ jobs:
         run: |
           mkdir -p .dlt/secrets
       
+      - name: Write Google Sheets credentials to file
+        run: |
+          printf '%s' "${{ secrets.GOOGLE_SHEETS_CREDENTIALS_JSON }}" | sed 's/\\n/\n/g' > .dlt/secrets/google_sheets_credentials.json
+      
       - name: Write MotherDuck token to file
         run: |
           echo '${{ secrets.MOTHERDUCK_SERVICE_TOKEN }}' > .dlt/secrets/motherduck_token.txt
@@ -36,37 +40,12 @@ jobs:
       - name: Create TOML configuration
         run: |
           cat << 'EOF' > .dlt/secrets.toml
+          [sources.google_sheets]
+          credentials_json_path = ".dlt/secrets/google_sheets_credentials.json"
+
           [destination.motherduck.credentials]
           database = "my_db"
           password_file = ".dlt/secrets/motherduck_token.txt"
-          EOF
-      
-      - name: Set Google Sheets environment variables
-        run: |
-          echo '${{ secrets.GOOGLE_SERVICE_ACCOUNT_TOKEN }}' > .dlt/service_account.json
-          
-          # Extract values from service account JSON and set environment variables
-          python3 << 'EOF'
-          import json
-          import os
-          
-          with open('.dlt/service_account.json', 'r') as f:
-              service_account = json.load(f)
-          
-          # Set the environment variables that dlt expects
-          os.environ['GOOGLE_SHEETS_PIPELINE__SOURCES__GOOGLE_SHEETS__GOOGLE_SPREADSHEET__CREDENTIALS__CLIENT_EMAIL'] = service_account.get('client_email', '')
-          os.environ['GOOGLE_SHEETS_PIPELINE__SOURCES__GOOGLE_SHEETS__GOOGLE_SPREADSHEET__CREDENTIALS__PRIVATE_KEY'] = service_account.get('private_key', '')
-          os.environ['GOOGLE_SHEETS_PIPELINE__SOURCES__GOOGLE_SHEETS__GOOGLE_SPREADSHEET__CREDENTIALS__PROJECT_ID'] = service_account.get('project_id', '')
-          
-          # Write to GITHUB_ENV for subsequent steps
-          with open(os.environ['GITHUB_ENV'], 'a') as env_file:
-              env_file.write(f"GOOGLE_SHEETS_PIPELINE__SOURCES__GOOGLE_SHEETS__GOOGLE_SPREADSHEET__CREDENTIALS__CLIENT_EMAIL={service_account.get('client_email', '')}\n")
-              env_file.write(f"GOOGLE_SHEETS_PIPELINE__SOURCES__GOOGLE_SHEETS__GOOGLE_SPREADSHEET__CREDENTIALS__PRIVATE_KEY={service_account.get('private_key', '')}\n")
-              env_file.write(f"GOOGLE_SHEETS_PIPELINE__SOURCES__GOOGLE_SHEETS__GOOGLE_SPREADSHEET__CREDENTIALS__PROJECT_ID={service_account.get('project_id', '')}\n")
-          
-          print("✅ Environment variables set successfully")
-          print(f"Client email: {service_account.get('client_email', 'not found')}")
-          print(f"Project ID: {service_account.get('project_id', 'not found')}")
           EOF
       
       - name: Run dlt pipeline
