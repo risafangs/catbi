@@ -30,12 +30,56 @@ jobs:
           # Create .dlt directory
           mkdir -p .dlt
           
-          # Create secrets.toml using echo commands (NO empty line)
-          echo '[sources.google_sheets]' > .dlt/secrets.toml
-          echo 'credentials_json = "${{ secrets.GOOGLE_SHEETS_CREDENTIALS_JSON }}"' >> .dlt/secrets.toml
-          echo '[destination.motherduck.credentials]' >> .dlt/secrets.toml
-          echo 'database = "my_db"' >> .dlt/secrets.toml
-          echo 'password = "${{ secrets.MOTHERDUCK_SERVICE_TOKEN }}"' >> .dlt/secrets.toml
+          # Create secrets.toml using Python to ensure clean TOML
+          python3 -c "
+import sys
+with open('.dlt/secrets.toml', 'w') as f:
+    f.write('[sources.google_sheets]\n')
+    f.write('credentials_json = ')
+    json_secret = '''\"${{ secrets.GOOGLE_SHEETS_CREDENTIALS_JSON }}\"'''
+    f.write(json_secret)
+    f.write('\n\n')
+    f.write('[destination.motherduck.credentials]\n')
+    f.write('database = \"my_db\"\n')
+    f.write('password = ')
+    password_secret = '''\"${{ secrets.MOTHERDUCK_SERVICE_TOKEN }}\"'''
+    f.write(password_secret)
+    f.write('\n')
+print('✅ secrets.toml created successfully')
+"
+      
+      - name: Verify TOML format (without content)
+        run: |
+          # Check if file exists and has basic structure
+          if [ -f ".dlt/secrets.toml" ]; then
+            echo "✅ secrets.toml file exists"
+            # Check file size (should not be empty)
+            file_size=$(wc -c < .dlt/secrets.toml)
+            if [ "$file_size" -gt 0 ]; then
+              echo "✅ File is not empty (size: $file_size bytes)"
+            else
+              echo "❌ File is empty"
+              exit 1
+            fi
+          else
+            echo "❌ secrets.toml file not found"
+            exit 1
+          fi
+          
+          # Basic syntax check using Python
+          python3 -c "
+import tomlkit
+try:
+    with open('.dlt/secrets.toml', 'r') as f:
+        content = f.read()
+    # Parse to validate syntax without printing content
+    parsed = tomlkit.loads(content)
+    print('✅ TOML syntax is valid')
+    print('✅ Sections found:', list(parsed.keys()))
+except Exception as e:
+    print('❌ TOML validation failed:', e)
+    sys.exit(1)
+"
       
       - name: Verify MotherDuck connection
         run: |
