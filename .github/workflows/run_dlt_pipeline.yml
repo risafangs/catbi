@@ -25,15 +25,32 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       
-      - name: Create secrets.toml
+      - name: Create secrets directory
         run: |
-          mkdir -p .dlt
-          echo '[sources.google_sheets]' > .dlt/secrets.toml
-          echo 'credentials_json = "${{ secrets.GOOGLE_SHEETS_CREDENTIALS_JSON }}"' >> .dlt/secrets.toml
-          echo '' >> .dlt/secrets.toml
-          echo '[destination.motherduck.credentials]' >> .dlt/secrets.toml
-          echo 'database = "my_db"' >> .dlt/secrets.toml
-          echo 'password = "${{ secrets.MOTHERDUCK_SERVICE_TOKEN }}"' >> .dlt/secrets.toml
+          mkdir -p .dlt/secrets
+      
+      - name: Write Google Sheets credentials to file
+        run: |
+          echo '${{ secrets.GOOGLE_SHEETS_CREDENTIALS_JSON }}' > .dlt/secrets/google_sheets_credentials.json
+      
+      - name: Write MotherDuck token to file
+        run: |
+          echo '${{ secrets.MOTHERDUCK_SERVICE_TOKEN }}' > .dlt/secrets/motherduck_token.txt
+      
+      - name: Create TOML configuration
+        run: |
+          cat << 'EOF' > .dlt/secrets.toml
+          [sources.google_sheets]
+          credentials_json_path = ".dlt/secrets/google_sheets_credentials.json"
+
+          [destination.motherduck.credentials]
+          database = "my_db"
+          password_file = ".dlt/secrets/motherduck_token.txt"
+          EOF
+      
+      - name: Validate credentials file
+        run: |
+          python3 -c "import json; data=json.load(open('.dlt/secrets/google_sheets_credentials.json')); print('✅ Valid JSON:', data.get('type', 'unknown'))"
       
       - name: Run dlt pipeline
         run: python mei_vomit_input_pipeline.py
