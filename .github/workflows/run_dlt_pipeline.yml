@@ -47,16 +47,19 @@ jobs:
               print("❌ ERROR: GOOGLE_SHEETS_CREDENTIALS_JSON is not set")
               exit(1)
           
-          # Convert literal \n to actual newlines
-          creds_json = creds_json.replace('\\n', '\n')
-          
-          # Parse the JSON
+          # Try to parse as-is first (in case it has actual newlines)
           try:
               creds = json.loads(creds_json)
-          except json.JSONDecodeError as e:
-              print(f"❌ ERROR: Failed to parse JSON: {e}")
-              print(f"JSON content (first 200 chars): {creds_json[:200]}")
-              exit(1)
+          except json.JSONDecodeError:
+              # If that fails, try converting literal \n to actual newlines
+              try:
+                  creds_json = creds_json.replace('\\n', '\n')
+                  creds = json.loads(creds_json)
+              except json.JSONDecodeError as e:
+                  print(f"❌ ERROR: Failed to parse JSON: {e}")
+                  # Don't print the actual content to avoid secret leakage
+                  print("JSON parsing failed. Please check that the secret is valid JSON.")
+                  exit(1)
           
           # Write secrets.toml
           with open('.dlt/secrets.toml', 'w') as f:
