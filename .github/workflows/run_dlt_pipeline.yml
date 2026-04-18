@@ -39,13 +39,24 @@ jobs:
       
       - name: Create TOML configuration
         run: |
-          cat << 'EOF' > .dlt/secrets.toml
-          [sources.google_sheets]
-          credentials_json_path = ".dlt/secrets/google_sheets_credentials.json"
-
-          [destination.motherduck.credentials]
-          database = "my_db"
-          password_file = ".dlt/secrets/motherduck_token.txt"
+          # Parse the JSON and extract fields for secrets.toml
+          python3 << 'EOF'
+          import json
+          
+          with open('.dlt/secrets/google_sheets_credentials.json', 'r') as f:
+              creds = json.load(f)
+          
+          with open('.dlt/secrets.toml', 'w') as f:
+              f.write('[sources.google_sheets.google_spreadsheet.credentials]\n')
+              f.write(f'project_id = "{creds["project_id"]}"\n')
+              f.write(f'client_email = "{creds["client_email"]}"\n')
+              f.write(f'private_key = """{creds["private_key"]}"""\n')
+              f.write('\n')
+              f.write('[destination.motherduck.credentials]\n')
+              f.write('database = "my_db"\n')
+              f.write('password_file = ".dlt/secrets/motherduck_token.txt"\n')
+          
+          print("✅ secrets.toml created successfully")
           EOF
       
       - name: Run dlt pipeline
