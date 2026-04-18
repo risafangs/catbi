@@ -5,7 +5,7 @@ title: CatBI
 ```sql events_last_30d 
     select *
     from catdb_new.events
-    where date >= current_date - interval '30 days' 
+    where date >= current_date - interval '31 days' 
     order by date desc
 ```
 
