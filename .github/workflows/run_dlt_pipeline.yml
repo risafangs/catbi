@@ -1,0 +1,67 @@
+name: Cat Events DLT Pipeline
+
+on:
+  # Schedule: Every 24 hours
+  schedule:
+    - cron: '0 23 * * *'
+  
+  # Allow manual triggering
+  workflow_dispatch:
+  
+  # Trigger on push to main branch
+  push:
+    branches: [ main ]
+
+jobs:
+  run-dlt-pipeline:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Configure dlt credentials
+        run: |
+          # Create .dlt directory if it doesn't exist
+          mkdir -p .dlt
+          
+          # Create config.toml
+          cat > .dlt/config.toml < EOF
+<          [general]
+          send_logs = true
+          log_level = "INFO"
+          
+          [sources.google_sheets]
+          # Add any global config here
+          EOF
+          
+          # Create secrets.toml (GitHub will inject secrets)
+          cat > .dlt/secrets.toml << EOF
+          [sources.google_sheets]
+          credentials_json = "${{ secrets.GOOGLE_SHEETS_CREDENTIALS_JSON }}"
+          EOF
+        env:
+          GOOGLE_SHEETS_CREDENTIALS_JSON: ${{ secrets.GOOGLE_SHEETS_CREDENTIALS_JSON }}
+      
+      - name: Run dlt pipeline
+        run: python google_sheets_pipeline.py
+      
+      - name: Upload pipeline logs
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: pipeline-logs
+          path: |
+            .dlt/pipelines/
+            *.log
+
