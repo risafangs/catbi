@@ -29,23 +29,36 @@ jobs:
         run: |
           mkdir -p .dlt/secrets
       
-      - name: Write Google Sheets credentials to file
-        run: |
-          printf '%s' "${{ secrets.GOOGLE_SHEETS_CREDENTIALS_JSON }}" | sed 's/\\n/\n/g' > .dlt/secrets/google_sheets_credentials.json
-      
       - name: Write MotherDuck token to file
         run: |
           echo '${{ secrets.MOTHERDUCK_SERVICE_TOKEN }}' > .dlt/secrets/motherduck_token.txt
       
       - name: Create TOML configuration
         run: |
-          # Parse the JSON and extract fields for secrets.toml
+          # Process the Google Sheets credentials and create secrets.toml
           python3 << 'EOF'
           import json
+          import os
           
-          with open('.dlt/secrets/google_sheets_credentials.json', 'r') as f:
-              creds = json.load(f)
+          # Get the secret from environment
+          creds_json = os.environ.get('GOOGLE_SHEETS_CREDENTIALS_JSON', '')
           
+          if not creds_json:
+              print("❌ ERROR: GOOGLE_SHEETS_CREDENTIALS_JSON is not set")
+              exit(1)
+          
+          # Convert literal \n to actual newlines
+          creds_json = creds_json.replace('\\n', '\n')
+          
+          # Parse the JSON
+          try:
+              creds = json.loads(creds_json)
+          except json.JSONDecodeError as e:
+              print(f"❌ ERROR: Failed to parse JSON: {e}")
+              print(f"JSON content (first 200 chars): {creds_json[:200]}")
+              exit(1)
+          
+          # Write secrets.toml
           with open('.dlt/secrets.toml', 'w') as f:
               f.write('[sources.google_sheets.google_spreadsheet.credentials]\n')
               f.write(f'project_id = "{creds["project_id"]}"\n')
@@ -57,7 +70,11 @@ jobs:
               f.write('password_file = ".dlt/secrets/motherduck_token.txt"\n')
           
           print("✅ secrets.toml created successfully")
+          print(f"Project ID: {creds['project_id']}")
+          print(f"Client email: {creds['client_email']}")
           EOF
+        env:
+          GOOGLE_SHEETS_CREDENTIALS_JSON: ${{ secrets.GOOGLE_SHEETS_CREDENTIALS_JSON }}
       
       - name: Run dlt pipeline
         run: python mei_vomit_input_pipeline.py
