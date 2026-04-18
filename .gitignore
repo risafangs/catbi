@@ -1,0 +1,18 @@
+# evidence stuff
+.evidence/meta
+.evidence/template
+.svelte-kit
+static/data
+
+# build dirs
+build
+node_modules
+
+# secrets
+.env
+
+# dlt
+.dlt/secrets.toml
+
+# logs
+*.log
