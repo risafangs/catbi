@@ -3,6 +3,12 @@
 .evidence/template
 .svelte-kit
 static/data
+sources/catbi/connection.yaml
+
+# db
+*.duckdb
+*.sqlite
+*.db
 
 # build dirs
 build
