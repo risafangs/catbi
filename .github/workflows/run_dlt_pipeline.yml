@@ -33,15 +33,13 @@ jobs:
           # Copy safe config.toml from repo
           cp .dlt/config.toml .dlt/config.toml
           
-          # Create secrets.toml from GitHub secrets
-          cat > .dlt/secrets.toml < EOF
-         < [sources.google_sheets]
-          credentials_json = "${{ secrets.GOOGLE_SHEETS_CREDENTIALS_JSON }}"
-          
-          [destination.motherduck.credentials]
-          database = "my_db"
-          password = "${{ secrets.MOTHERDUCK_SERVICE_TOKEN }}"
-          EOF
+          # Create secrets.toml using echo commands
+          echo '[sources.google_sheets]' > .dlt/secrets.toml
+          echo 'credentials_json = "${{ secrets.GOOGLE_SHEETS_CREDENTIALS_JSON }}"' >> .dlt/secrets.toml
+          echo '' >> .dlt/secrets.toml
+          echo '[destination.motherduck.credentials]' >> .dlt/secrets.toml
+          echo 'database = "my_db"' >> .dlt/secrets.toml
+          echo 'password = "${{ secrets.MOTHERDUCK_SERVICE_TOKEN }}"' >> .dlt/secrets.toml
       
       - name: Verify MotherDuck connection
         run: |
