@@ -25,105 +25,18 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       
-      - name: Configure dlt credentials for MotherDuck
+      - name: Create secrets.toml
         run: |
-          # Create .dlt directory
           mkdir -p .dlt
-          
-          # Create secrets.toml using Python to ensure clean TOML
-          python3 -c "
-import sys
-with open('.dlt/secrets.toml', 'w') as f:
-    f.write('[sources.google_sheets]\n')
-    f.write('credentials_json = ')
-    json_secret = '''\"${{ secrets.GOOGLE_SHEETS_CREDENTIALS_JSON }}\"'''
-    f.write(json_secret)
-    f.write('\n\n')
-    f.write('[destination.motherduck.credentials]\n')
-    f.write('database = \"my_db\"\n')
-    f.write('password = ')
-    password_secret = '''\"${{ secrets.MOTHERDUCK_SERVICE_TOKEN }}\"'''
-    f.write(password_secret)
-    f.write('\n')
-print('✅ secrets.toml created successfully')
-"
-      
-      - name: Verify TOML format (without content)
-        run: |
-          # Check if file exists and has basic structure
-          if [ -f ".dlt/secrets.toml" ]; then
-            echo "✅ secrets.toml file exists"
-            # Check file size (should not be empty)
-            file_size=$(wc -c < .dlt/secrets.toml)
-            if [ "$file_size" -gt 0 ]; then
-              echo "✅ File is not empty (size: $file_size bytes)"
-            else
-              echo "❌ File is empty"
-              exit 1
-            fi
-          else
-            echo "❌ secrets.toml file not found"
-            exit 1
-          fi
-          
-          # Basic syntax check using Python
-          python3 -c "
-import tomlkit
-try:
-    with open('.dlt/secrets.toml', 'r') as f:
-        content = f.read()
-    # Parse to validate syntax without printing content
-    parsed = tomlkit.loads(content)
-    print('✅ TOML syntax is valid')
-    print('✅ Sections found:', list(parsed.keys()))
-except Exception as e:
-    print('❌ TOML validation failed:', e)
-    sys.exit(1)
-"
-      
-      - name: Verify MotherDuck connection
-        run: |
-          # Test the connection before running pipeline
-          python -c "
-          import duckdb
-          import os
-          
-          # Read credentials from secrets.toml
-          with open('.dlt/secrets.toml', 'r') as f:
-              secrets = f.read()
-          
-          # Extract database and token
-          import re
-          database_match = re.search(r'database = \"([^\"]+)\"', secrets)
-          password_match = re.search(r'password = \"([^\"]+)\"', secrets)
-          
-          if database_match and password_match:
-              database = database_match.group(1)
-              token = password_match.group(1)
-              
-              # Test connection
-              conn = duckdb.connect(f'md:{database}?motherduck_token={token}')
-              result = conn.execute('SELECT 1').fetchone()
-              print('✅ MotherDuck connection successful')
-              conn.close()
-          else:
-              print('❌ Could not parse credentials')
-              exit(1)
-          "
+          echo '[sources.google_sheets]' > .dlt/secrets.toml
+          echo 'credentials_json = "${{ secrets.GOOGLE_SHEETS_CREDENTIALS_JSON }}"' >> .dlt/secrets.toml
+          echo '' >> .dlt/secrets.toml
+          echo '[destination.motherduck.credentials]' >> .dlt/secrets.toml
+          echo 'database = "my_db"' >> .dlt/secrets.toml
+          echo 'password = "${{ secrets.MOTHERDUCK_SERVICE_TOKEN }}"' >> .dlt/secrets.toml
       
       - name: Run dlt pipeline
         run: python mei_vomit_input_pipeline.py
-      
-      - name: Upload database artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: motherduck-data-${{ github.run_number }}
-          path: |
-            # MotherDuck stores data remotely, so we don't need to upload files
-            # But we can upload logs
-            .dlt/pipelines/*/logs/
-          retention-days: 7
       
       - name: Upload logs
         if: always()
