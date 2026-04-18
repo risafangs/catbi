@@ -27,13 +27,12 @@ jobs:
       
       - name: Configure dlt credentials for MotherDuck
         run: |
-          # Create .dlt directory (it should already exist from checkout)
+          # Create .dlt directory
           mkdir -p .dlt
           
-          # Create secrets.toml using echo commands
+          # Create secrets.toml using echo commands (NO empty line)
           echo '[sources.google_sheets]' > .dlt/secrets.toml
           echo 'credentials_json = "${{ secrets.GOOGLE_SHEETS_CREDENTIALS_JSON }}"' >> .dlt/secrets.toml
-          echo '' >> .dlt/secrets.toml
           echo '[destination.motherduck.credentials]' >> .dlt/secrets.toml
           echo 'database = "my_db"' >> .dlt/secrets.toml
           echo 'password = "${{ secrets.MOTHERDUCK_SERVICE_TOKEN }}"' >> .dlt/secrets.toml
