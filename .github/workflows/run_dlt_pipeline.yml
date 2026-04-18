@@ -1,14 +1,9 @@
 name: Cat Events DLT Pipeline
 
 on:
-  # Schedule: Every 24 hours
   schedule:
-    - cron: '0 23 * * *'
-  
-  # Allow manual triggering
+    - cron: '0 23 * * *'  # Every 6 hours
   workflow_dispatch:
-  
-  # Trigger on push to main branch
   push:
     branches: [ main ]
 
@@ -30,38 +25,73 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       
-      - name: Configure dlt credentials
+      - name: Configure dlt credentials for MotherDuck
         run: |
-          # Create .dlt directory if it doesn't exist
+          # Create .dlt directory
           mkdir -p .dlt
           
-          # Create config.toml
-          cat > .dlt/config.toml < EOF
-<          [general]
-          send_logs = true
-          log_level = "INFO"
+          # Copy safe config.toml from repo
+          cp .dlt/config.toml .dlt/config.toml
           
-          [sources.google_sheets]
-          # Add any global config here
-          EOF
-          
-          # Create secrets.toml (GitHub will inject secrets)
-          cat > .dlt/secrets.toml << EOF
-          [sources.google_sheets]
+          # Create secrets.toml from GitHub secrets
+          cat > .dlt/secrets.toml < EOF
+         < [sources.google_sheets]
           credentials_json = "${{ secrets.GOOGLE_SHEETS_CREDENTIALS_JSON }}"
+          
+          [destination.motherduck.credentials]
+          database = "my_db"
+          password = "${{ secrets.MOTHERDUCK_SERVICE_TOKEN }}"
           EOF
-        env:
-          GOOGLE_SHEETS_CREDENTIALS_JSON: ${{ secrets.GOOGLE_SHEETS_CREDENTIALS_JSON }}
+      
+      - name: Verify MotherDuck connection
+        run: |
+          # Test the connection before running pipeline
+          python -c "
+          import duckdb
+          import os
+          
+          # Read credentials from secrets.toml
+          with open('.dlt/secrets.toml', 'r') as f:
+              secrets = f.read()
+          
+          # Extract database and token
+          import re
+          database_match = re.search(r'database = \"([^\"]+)\"', secrets)
+          password_match = re.search(r'password = \"([^\"]+)\"', secrets)
+          
+          if database_match and password_match:
+              database = database_match.group(1)
+              token = password_match.group(1)
+              
+              # Test connection
+              conn = duckdb.connect(f'md:{database}?motherduck_token={token}')
+              result = conn.execute('SELECT 1').fetchone()
+              print('✅ MotherDuck connection successful')
+              conn.close()
+          else:
+              print('❌ Could not parse credentials')
+              exit(1)
+          "
       
       - name: Run dlt pipeline
-        run: python google_sheets_pipeline.py
+        run: python cat_events_pipeline.py
       
-      - name: Upload pipeline logs
+      - name: Upload database artifact
         if: always()
         uses: actions/upload-artifact@v3
         with:
-          name: pipeline-logs
+          name: motherduck-data-${{ github.run_number }}
           path: |
-            .dlt/pipelines/
-            *.log
-
+            # MotherDuck stores data remotely, so we don't need to upload files
+            # But we can upload logs
+            .dlt/pipelines/*/logs/
+          retention-days: 7
+      
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: logs-${{ github.run_number }}
+          path: |
+            .dlt/pipelines/*/logs/
+          retention-days: 3
