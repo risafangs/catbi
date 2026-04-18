@@ -48,9 +48,27 @@ jobs:
           password_file = ".dlt/secrets/motherduck_token.txt"
           EOF
       
+      - name: Create proper credentials TOML
+        run: |
+          cat << 'EOF' > .dlt/credentials.toml
+          [credentials]
+          client_email = "${{ secrets.GOOGLE_SHEETS_CLIENT_EMAIL }}"
+          private_key = "${{ secrets.GOOGLE_SHEETS_PRIVATE_KEY }}"
+          project_id = "${{ secrets.GOOGLE_SHEETS_PROJECT_ID }}"
+          EOF
+      
       - name: Validate credentials file
         run: |
-          python3 -c "import json; data=json.load(open('.dlt/secrets/google_sheets_credentials.json')); print('✅ Valid JSON:', data.get('type', 'unknown'))"
+          python3 -c "
+          import json
+          try:
+              with open('.dlt/secrets/google_sheets_credentials.json', 'r') as f:
+                  data = json.load(f)
+              print('✅ Valid JSON:', data.get('type', 'unknown'))
+              print('Client email:', data.get('client_email', 'unknown'))
+          except Exception as e:
+              print(f'❌ Validation failed: {e}')
+          "
       
       - name: Run dlt pipeline
         run: python mei_vomit_input_pipeline.py
