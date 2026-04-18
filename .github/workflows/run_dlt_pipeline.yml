@@ -2,7 +2,7 @@ name: Run Cat Events dlt Pipeline
 
 on:
   schedule:
-    - cron: '0 23 * * *'  # Every 6 hours
+    - cron: '0 23 * * *'  # Daily
   workflow_dispatch:
   push:
     branches: [ main ]
@@ -74,7 +74,7 @@ jobs:
           "
       
       - name: Run dlt pipeline
-        run: python cat_events_pipeline.py
+        run: python mei_vomit_input_pipeline.py
       
       - name: Upload database artifact
         if: always()
